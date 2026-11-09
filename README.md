@@ -4,14 +4,14 @@ Aplikasi Windows untuk mengumumkan pesanan instan yang sudah lunas atau siap dip
 
 ## Unduh dan jalankan
 
-Unduh **PengumumanPesananInstan.exe** dari [Releases](../../releases/latest). File ini untuk **Windows 10/11 64-bit**, sudah memuat Python, antarmuka, dan dua rekaman suara wanita Indonesia. PC penerima tidak perlu menginstal Python.
+Unduh **PengumumanPesananInstan.exe** dari [Releases](https://github.com/vidiciindonesia-crypto/ginee-instant-notifier/releases/latest). File ini untuk **Windows 10/11 64-bit**, sudah memuat Python, antarmuka, dan dua rekaman suara wanita Indonesia. PC penerima tidak perlu menginstal Python.
 
 1. Jalankan EXE dan buka **Pengaturan API & layanan**.
 2. Masukkan Access Key dan Secret Key Ginee di komputer tersebut, lalu simpan.
 3. Klik **Mulai / uji koneksi**, **Tes instan biasa**, dan **Tes suara & pop-up**.
 4. Minimalkan aplikasi untuk tetap memantau. Menutup aplikasi atau membiarkan PC sleep menghentikan pemantauan.
 
-Repositori ini private; unduhan GitHub memerlukan akun yang memiliki akses. Setelah diunduh, file EXE dapat disalin ke PC lain.
+Setelah diunduh, file EXE dapat disalin ke PC lain. Kunci Ginee diisi pada masing-masing PC.
 
 ## Perilaku
 

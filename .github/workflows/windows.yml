@@ -23,6 +23,7 @@ jobs:
           python-version: '3.12'
           architecture: x64
           cache: pip
+          cache-dependency-path: requirements-build.txt
       - name: Install build tools
         run: python -m pip install -r requirements-build.txt
       - name: Test application logic
@@ -51,7 +52,7 @@ jobs:
           path: dist/*
           retention-days: 14
           if-no-files-found: error
-      - name: Publish downloadable private release
+      - name: Publish downloadable release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
