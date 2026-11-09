@@ -1,0 +1,62 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+          cache: pip
+      - name: Install build tools
+        run: python -m pip install -r requirements-build.txt
+      - name: Test application logic
+        run: python -m unittest -v test_core test_audio
+      - name: Build one-file EXE with bundled voice
+        run: python build_exe.py
+      - name: Check packaged Windows runtime
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath .\dist\PengumumanPesananInstan.exe -ArgumentList @('--self-test', '--self-test-report', 'runtime-check.json') -Wait -PassThru
+          if (Test-Path runtime-check.json) { Get-Content runtime-check.json }
+          if ($p.ExitCode -ne 0) { throw "EXE runtime check failed ($($p.ExitCode))" }
+          $report = Get-Content runtime-check.json -Raw | ConvertFrom-Json
+          if (-not $report.ok -or -not $report.frozen) { throw 'Packaged runtime report is not successful' }
+          Copy-Item runtime-check.json dist\runtime-check.json
+      - name: Package download and checksum
+        shell: pwsh
+        run: |
+          Copy-Item README-WINDOWS.txt dist\README-WINDOWS.txt
+          $hash = (Get-FileHash dist\PengumumanPesananInstan.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PengumumanPesananInstan.exe" | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          Compress-Archive -Path dist\PengumumanPesananInstan.exe,dist\README-WINDOWS.txt,dist\SHA256SUMS.txt -DestinationPath dist\Ginee-Portable-Windows-x64.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Ginee-Portable-Windows-x64
+          path: dist/*
+          retention-days: 14
+          if-no-files-found: error
+      - name: Publish downloadable private release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          $tag = 'v0.1.${{ github.run_number }}'
+          gh release create $tag dist\PengumumanPesananInstan.exe dist\Ginee-Portable-Windows-x64.zip dist\SHA256SUMS.txt --title "Pengumuman Pesanan Instan $tag" --notes-file RELEASE_NOTES.md --target $env:GITHUB_SHA --latest
+          if ($LASTEXITCODE -ne 0) { throw 'Release upload failed' }
