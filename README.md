@@ -11,6 +11,8 @@ Unduh **PengumumanPesananInstan.exe** dari [Releases](https://github.com/vidicii
 3. Klik **Mulai / uji koneksi**, **Tes instan biasa**, dan **Tes suara & pop-up**.
 4. Minimalkan aplikasi untuk tetap memantau. Menutup aplikasi atau membiarkan PC sleep menghentikan pemantauan.
 
+Untuk mengecek pesanan di Ginee, pilih satu baris pada tabel lalu klik **Salin nomor pesanan**, atau tekan **Ctrl+C** saat tabel aktif. Hanya nomor pesanan marketplace dari baris tersebut yang disalin, sehingga bisa langsung ditempel di pencarian Ginee.
+
 Setelah diunduh, file EXE dapat disalin ke PC lain. Kunci Ginee diisi pada masing-masing PC.
 
 ## Perilaku

@@ -1,4 +1,8 @@
-Pembaruan Windows 10/11 64-bit: hentikan suara ketika pesanan Sedang Dikirim.
+Pembaruan Windows 10/11 64-bit: salin nomor pesanan satu per satu.
+
+- Pilih satu baris, lalu klik Salin nomor pesanan atau tekan Ctrl+C pada tabel.
+- Clipboard hanya berisi nomor pesanan yang dipilih, siap ditempel ke pencarian Ginee.
+- Pengujian EXE memeriksa pemilihan dua nomor yang berbeda dan penyalinan persis, termasuk angka nol di depan.
 
 - Pengumuman pesanan instan dari marketplace yang terhubung ke Ginee, termasuk Shopee dan TikTok.
 - Sebutan khusus untuk instan prioritas; suara wanita Indonesia sudah disertakan.

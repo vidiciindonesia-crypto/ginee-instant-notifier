@@ -8,6 +8,9 @@ Untuk Windows 10/11 64-bit. Python tidak perlu dipasang.
 4. Klik Tes instan biasa dan Tes suara & pop-up.
 5. Minimalkan aplikasi agar tetap memantau.
 
+Untuk mencari pesanan di Ginee: pilih satu baris, klik Salin nomor pesanan,
+atau tekan Ctrl+C ketika tabel aktif. Tempel hasilnya di kolom pencarian Ginee.
+
 Suara wanita Indonesia sudah termasuk di EXE. Internet diperlukan untuk API Ginee.
 Pesanan instan dapat berasal dari Shopee, TikTok, atau marketplace lain di Ginee.
 Instan prioritas disebutkan khusus. Pengumuman tidak dibatasi aturan 15 menit.

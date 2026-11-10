@@ -126,6 +126,7 @@ class App:
         self.remind = tk.BooleanVar(value=False)
         self.auto = tk.BooleanVar(value=True)
         self.status = tk.StringVar(value="Belum terhubung. Masukkan API lalu klik Mulai.")
+        self.copy_status = tk.StringVar(value="Pilih satu pesanan, lalu klik Salin nomor pesanan atau tekan Ctrl+C.")
         self.last_status_time = 0
         self.build_ui()
         self.load()
@@ -171,8 +172,14 @@ class App:
         scrollbar = ttk.Scrollbar(box, orient="vertical", command=self.tree.yview)
         scrollbar.pack(side="right", fill="y")
         self.tree.configure(yscrollcommand=scrollbar.set)
-        ttk.Button(monitor, text="Sudah ditangani — hentikan pengingat pesanan terpilih",
-            command=self.acknowledge).pack(anchor="w", pady=8)
+        self.tree.bind("<Control-c>", self.copy_order_number)
+        self.tree.bind("<Control-C>", self.copy_order_number)
+        actions = ttk.Frame(monitor)
+        actions.pack(fill="x", pady=8)
+        ttk.Button(actions, text="Salin nomor pesanan", command=self.copy_order_number).pack(side="left", padx=(0,8))
+        ttk.Button(actions, text="Sudah ditangani — hentikan pengingat pesanan terpilih",
+            command=self.acknowledge).pack(side="left")
+        ttk.Label(monitor, textvariable=self.copy_status, wraplength=950).pack(anchor="w")
         ttk.Label(monitor, text="Tombol ini hanya mengubah status di aplikasi ini, bukan status pesanan Ginee.").pack(anchor="w")
         ttk.Label(monitor, text="Layanan yang terdeteksi (tanpa data pembeli):").pack(anchor="w", pady=(10,2))
         self.log = tk.Text(monitor, height=5, state="disabled", wrap="word", font=("Consolas", 9))
@@ -434,6 +441,20 @@ class App:
         if selected:
             self.store.acknowledge(selected[0])
 
+    def copy_order_number(self, event=None):
+        selected = self.tree.selection()
+        if not selected or not self.tree.exists(selected[0]):
+            self.copy_status.set("Pilih satu pesanan yang ingin disalin.")
+            return "break"
+        number = str(self.tree.set(selected[0], "number"))
+        if not number:
+            self.copy_status.set("Nomor pesanan belum tersedia.")
+            return "break"
+        self.root.clipboard_clear()
+        self.root.clipboard_append(number)
+        self.copy_status.set("Nomor pesanan disalin: " + number)
+        return "break"
+
     def close(self):
         if self.running and not messagebox.askyesno("Tutup aplikasi?", "Pemantauan akan berhenti. Tutup aplikasi?\nPilih Tidak lalu minimalkan untuk tetap memantau."):
             return
@@ -473,6 +494,15 @@ def runtime_self_test(report_file):
                 root.withdraw()
                 view = App(root)
                 root.update_idletasks()
+                # Exercise the real Tk selection and Windows clipboard in the EXE.
+                for identifier, number in (("COPY-CHECK-1", "001234567890123456"), ("COPY-CHECK-2", "261110ABCDEF")):
+                    view.tree.insert("", "end", iid=identifier, values=(number, "", "", "", "", ""))
+                    view.tree.selection_set(identifier)
+                    view.copy_order_number()
+                    if root.clipboard_get() != number:
+                        raise RuntimeError("Copy selected order number failed.")
+                view.tree.delete(*view.tree.get_children())
+                result["checks"]["copy_order_clipboard"] = "passed; selected number only, leading zeros preserved"
                 view.store.ingest([], datetime.now(UTC), DEFAULT_INSTANT, DEFAULT_PRIORITY)
                 result["checks"]["tkinter_and_sqlite"] = "passed"
             finally:
