@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 UTC = timezone.utc
 DEFAULT_INSTANT = "instant, instan"
 DEFAULT_PRIORITY = "instant prioritas, instan prioritas, instant priority, instan priority"
-STOP_STATUSES = {"CANCELLED", "CANCELED", "SHIPPED", "SHIPPING", "DELIVERED", "CLOSED", "RETURNED"}
+STOP_STATUSES = {"READY_TO_SHIP", "PACKED", "CANCELLED", "CANCELED", "SHIPPED", "SHIPPING", "DELIVERED", "CLOSED", "RETURNED"}
 
 
 def list_records(data):
@@ -93,7 +93,7 @@ class Client:
             if marker in visited:
                 raise ApiError("Cursor Ginee berulang. Akan dicoba ulang tanpa memajukan waktu sinkronisasi.")
             visited.add(marker)
-        eligible = {"PAID", "READY_TO_SHIP", "PACKED"}
+        eligible = {"PAID"}
         # Refresh existing open alerts even when their market update timestamp
         # falls outside the incremental list window.
         watched = set(watch_ids)
@@ -160,7 +160,7 @@ class Store:
                 identifier = order["orderId"]
                 status = str(order.get("orderStatus", "")).upper()
                 if status in STOP_STATUSES:
-                    # Persist even if SHIPPING arrives before the initial paid order.
+                    # Persist even if a processed status arrives before the paid order.
                     # A delayed PAID response must never restart its announcements.
                     self.db.execute("INSERT OR REPLACE INTO stopped_orders VALUES (?,?,?)",
                         (identifier, status, stamp(until)))
@@ -168,8 +168,8 @@ class Store:
                     continue
                 if self.db.execute("SELECT 1 FROM stopped_orders WHERE id=?", (identifier,)).fetchone():
                     continue
-                # Announce only paid/ready orders, not pending-payment orders.
-                if kind == "LAINNYA" or status not in {"PAID", "READY_TO_SHIP", "PACKED"}:
+                # Only Lunas/PAID orders are eligible for announcements.
+                if kind == "LAINNYA" or status != "PAID":
                     continue
                 # User-confirmed rule applies only to Shopee priority orders.
                 # TikTok instant orders do not inherit this packing deadline.

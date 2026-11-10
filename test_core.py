@@ -66,6 +66,26 @@ class StorageTests(unittest.TestCase):
         self.assertEqual(self.store.rows()[0]["stopped_status"], "SHIPPING")
         self.assertEqual(self.store.active_ids(), [])
 
+    def test_ready_to_ship_stops_paid_alert_and_stays_muted_after_restart(self):
+        self.ingest([order()])
+        self.assertTrue(self.store.can_announce("O1"))
+        self.ingest([order(status="READY_TO_SHIP")])
+        self.assertFalse(self.store.can_announce("O1"))
+        self.assertEqual(self.store.rows()[0]["stopped_status"], "READY_TO_SHIP")
+        self.assertEqual(self.store.active_ids(), [])
+        self.store.db.close()
+        self.store = Store(self.path)
+        self.ingest([order(status="PAID")])
+        self.assertEqual(self.store.pending(), [])
+
+    def test_initial_ready_or_packed_orders_never_announce(self):
+        for status in ("READY_TO_SHIP", "PACKED"):
+            with self.subTest(status=status):
+                self.ingest([order(status, status=status)])
+                self.ingest([order(status, status="PAID")])
+                self.assertFalse(self.store.can_announce(status))
+        self.assertEqual(self.store.pending(), [])
+
     def test_shipping_seen_before_stale_paid_response_never_announces(self):
         self.ingest([order(status="SHIPPING")])
         self.ingest([order(status="PAID")])

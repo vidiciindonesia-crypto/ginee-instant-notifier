@@ -1,4 +1,8 @@
-Pembaruan Windows 10/11 64-bit: salin nomor pesanan satu per satu.
+Pembaruan Windows 10/11 64-bit: hentikan pengumuman sejak Siap Dikirim.
+
+- Hanya pesanan instan berstatus Lunas/PAID yang diumumkan.
+- Status READY_TO_SHIP/Siap Dikirim menghentikan suara, antrean, dan pengingat, seperti status Sedang Dikirim.
+- Pesanan yang pertama ditemukan sudah Siap Dikirim tetap tidak berbunyi, termasuk setelah restart atau respons PAID lama.
 
 - Pilih satu baris, lalu klik Salin nomor pesanan atau tekan Ctrl+C pada tabel.
 - Clipboard hanya berisi nomor pesanan yang dipilih, siap ditempel ke pencarian Ginee.

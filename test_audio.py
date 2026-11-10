@@ -133,6 +133,27 @@ class AudioTests(unittest.TestCase):
         finally:
             store.db.close()
 
+    def test_ready_to_ship_skips_queued_audio_and_cancels_current_voice(self):
+        store = Store(self.directory / "history.sqlite")
+        sample = {"orderId": "READY", "orderStatus": "PAID",
+            "logisticsInfos": [{"logisticsProviderName": "Blitz-ID-Instant"}]}
+        view = app.App.__new__(app.App)
+        view.stop_event = threading.Event()
+        try:
+            store.ingest([sample], datetime.now(UTC), DEFAULT_INSTANT, DEFAULT_PRIORITY)
+            def voice(text, cancelled):
+                self.assertFalse(cancelled())
+                store.ingest([{**sample, "orderStatus": "READY_TO_SHIP"}], datetime.now(UTC), DEFAULT_INSTANT, DEFAULT_PRIORITY)
+                self.assertTrue(cancelled())
+                return False
+            with patch.object(app, "DATA", self.directory), patch.object(app, "speak", side_effect=voice):
+                self.assertFalse(view.play_audio("Pesanan instan", "READY"))
+            with patch.object(app, "DATA", self.directory), patch.object(app, "speak") as voice:
+                self.assertFalse(view.play_audio("Pesanan instan", "READY"))
+                voice.assert_not_called()
+        finally:
+            store.db.close()
+
 
 if __name__ == "__main__":
     unittest.main()

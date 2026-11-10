@@ -426,6 +426,7 @@ class App:
             self.tree.insert("", "end", iid=row["id"], values=(row["number"], row["shop"], row["service"],
                 row["kind"], remaining if not row["acknowledged"] else "—",
                 "Sedang Dikirim" if row.get("stopped_status") in {"SHIPPING", "SHIPPED"}
+                else "Siap Dikirim" if row.get("stopped_status") in {"READY_TO_SHIP", "PACKED"}
                 else "Ditangani" if row["acknowledged"] else "Perlu ditangani"),
                 tags=("priority",) if row["kind"] == "PRIORITAS" and not row["acknowledged"] else ())
             if (self.running and self.remind.get() and row["kind"] == "PRIORITAS" and not row["acknowledged"]
