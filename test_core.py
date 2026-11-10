@@ -57,6 +57,30 @@ class StorageTests(unittest.TestCase):
         self.ingest([order(status="CANCELLED")])
         self.assertTrue(self.store.rows()[0]["acknowledged"])
 
+    def test_shipping_stops_pending_alert_and_all_future_reminders(self):
+        self.ingest([order()])
+        self.assertTrue(self.store.can_announce("O1"))
+        self.ingest([order(status="SHIPPING")])
+        self.assertFalse(self.store.can_announce("O1"))
+        self.assertEqual(self.store.pending(), [])
+        self.assertEqual(self.store.rows()[0]["stopped_status"], "SHIPPING")
+        self.assertEqual(self.store.active_ids(), [])
+
+    def test_shipping_seen_before_stale_paid_response_never_announces(self):
+        self.ingest([order(status="SHIPPING")])
+        self.ingest([order(status="PAID")])
+        self.assertFalse(self.store.can_announce("O1"))
+        self.assertEqual(self.store.pending(), [])
+
+    def test_shipping_mute_survives_restart_and_stale_priority_upgrade(self):
+        self.ingest([order(provider="Instant")])
+        self.ingest([order(status="SHIPPING")])
+        self.store.db.close()
+        self.store = Store(self.path)
+        self.ingest([order(provider="SPX Instant Prioritas", status="PAID")])
+        self.assertFalse(self.store.can_announce("O1"))
+        self.assertEqual(self.store.pending(), [])
+
     def test_priority_upgrade_announced_again(self):
         self.ingest([order(provider="Instant")])
         self.store.mark_delivered("O1")
@@ -153,6 +177,19 @@ class StorageTests(unittest.TestCase):
 
 
 class ApiTests(unittest.TestCase):
+    def test_open_alert_is_refreshed_when_shipping_is_absent_from_delta(self):
+        client = Client("dummy", "dummy")
+        calls = []
+        def call(path, body):
+            calls.append((path, body))
+            if path.endswith("/order/list"):
+                return {"content": []}
+            return [order("WATCHED", status="SHIPPING")]
+        client.call = call
+        results = client.orders(NOW - timedelta(minutes=15), NOW, watch_ids=["WATCHED"])
+        self.assertEqual(results[0]["orderStatus"], "SHIPPING")
+        self.assertEqual(calls[1][1], {"orderIds": ["WATCHED"]})
+
     def test_v3_list_with_string_cursor(self):
         self.assertEqual(list_records({"nextCursor": "123#ORDER", "orders": [{"orderId": "A"}]}), [{"orderId": "A"}])
         with self.assertRaises(ApiError):

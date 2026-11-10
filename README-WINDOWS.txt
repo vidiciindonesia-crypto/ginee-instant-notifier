@@ -11,6 +11,9 @@ Untuk Windows 10/11 64-bit. Python tidak perlu dipasang.
 Suara wanita Indonesia sudah termasuk di EXE. Internet diperlukan untuk API Ginee.
 Pesanan instan dapat berasal dari Shopee, TikTok, atau marketplace lain di Ginee.
 Instan prioritas disebutkan khusus. Pengumuman tidak dibatasi aturan 15 menit.
+Saat status Sedang Dikirim/SHIPPING tersinkron, suara dan pengingat pesanan
+tersebut berhenti, termasuk suara yang masih antre atau sedang berjalan.
+Perubahan status diperiksa mengikuti interval sinkronisasi (bawaan 30 detik).
 Timer 15 menit hanya informasi lokal Shopee prioritas sejak pembayaran berhasil.
 
 Kunci dan riwayat disimpan terpisah di akun Windows masing-masing PC.

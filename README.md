@@ -19,6 +19,8 @@ Setelah diunduh, file EXE dapat disalin ke PC lain. Kunci Ginee diisi pada masin
 - Layanan yang mengandung `instant` atau `instan` diumumkan dari semua marketplace yang dikembalikan Ginee. Pola layanan dapat diubah di pengaturan.
 - Layanan seperti `SPX Instant Prioritas` disebut sebagai prioritas.
 - Setiap pesanan dicatat lokal untuk mencegah pengumuman berulang saat refresh/restart.
+- Ketika status `SHIPPING` (Sedang Dikirim) tersinkron, pengumuman dan pengingat pesanan itu berhenti. Antrean suaranya dilewati; audio yang masih berjalan dihentikan. Pesanan tersebut tetap dibisukan setelah restart, termasuk bila ada respons `PAID` lama yang terlambat diterima.
+- Status pesanan yang masih menunggu penanganan juga diperiksa langsung melalui API detail setiap siklus, sehingga penghentian suara tidak hanya bergantung pada daftar perubahan pesanan. Waktu pembaruan mengikuti interval sinkronisasi dan ketersediaan API Ginee (bawaan 30 detik).
 - Timer packing lokal hanya untuk Shopee Instan Prioritas: `payAt + 15 menit`. TikTok tidak memakai aturan ini. Timer tidak menentukan apakah pengumuman boleh berbunyi.
 - Pembacaan ulang 15 menit mengurangi risiko pembaruan API yang terlambat terlewat. Penundaan atau informasi logistik yang belum tersedia dari Ginee tetap dapat memengaruhi deteksi.
 - Log menampilkan marketplace, status API, nomor pesanan, dan layanan tanpa data pembeli. Tombol **Salin log** membantu pemeriksaan pesanan yang belum diumumkan.

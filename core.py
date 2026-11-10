@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 UTC = timezone.utc
 DEFAULT_INSTANT = "instant, instan"
 DEFAULT_PRIORITY = "instant prioritas, instan prioritas, instant priority, instan priority"
+STOP_STATUSES = {"CANCELLED", "CANCELED", "SHIPPED", "SHIPPING", "DELIVERED", "CLOSED", "RETURNED"}
 
 
 def list_records(data):
@@ -71,7 +72,7 @@ class Client:
             raise ApiError(f"Ginee: {code}. Periksa key, izin API, atau batas permintaan.")
         return result.get("data")
 
-    def orders(self, since, until):
+    def orders(self, since, until, watch_ids=()):
         cursor = None
         visited = set()
         orders = {}
@@ -93,8 +94,18 @@ class Client:
                 raise ApiError("Cursor Ginee berulang. Akan dicoba ulang tanpa memajukan waktu sinkronisasi.")
             visited.add(marker)
         eligible = {"PAID", "READY_TO_SHIP", "PACKED"}
-        result = [value for value in orders.values() if value.get("orderStatus") not in eligible]
-        ids = [identifier for identifier, value in orders.items() if value.get("orderStatus") in eligible]
+        # Refresh existing open alerts even when their market update timestamp
+        # falls outside the incremental list window.
+        watched = set(watch_ids)
+        ids = [identifier for identifier, value in orders.items() if (
+            value.get("orderStatus") in eligible or
+            (identifier in watched and value.get("orderStatus") not in STOP_STATUSES))]
+        for identifier in watched:
+            if identifier not in orders:
+                orders[identifier] = {"orderId": identifier}
+                ids.append(identifier)
+        detailed = set(ids)
+        result = [value for identifier, value in orders.items() if identifier not in detailed]
         for offset in range(0, len(ids), 100):
             batch_ids = ids[offset:offset + 100]
             details = self.call("/openapi/v3/oms/order/item/batch-get", {"orderIds": batch_ids})
@@ -131,6 +142,8 @@ class Store:
             id TEXT PRIMARY KEY, number TEXT, shop TEXT, service TEXT, kind TEXT,
             deadline TEXT, acknowledged INTEGER DEFAULT 0, delivered INTEGER DEFAULT 0,
             created TEXT)""")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS stopped_orders (
+            id TEXT PRIMARY KEY, status TEXT NOT NULL, seen_at TEXT NOT NULL)""")
         self.db.commit()
 
     def since(self, now):
@@ -146,8 +159,14 @@ class Store:
                 kind = category(order, instant, priority)
                 identifier = order["orderId"]
                 status = str(order.get("orderStatus", "")).upper()
-                if status in {"CANCELLED", "CANCELED", "SHIPPED", "SHIPPING", "DELIVERED", "CLOSED"}:
+                if status in STOP_STATUSES:
+                    # Persist even if SHIPPING arrives before the initial paid order.
+                    # A delayed PAID response must never restart its announcements.
+                    self.db.execute("INSERT OR REPLACE INTO stopped_orders VALUES (?,?,?)",
+                        (identifier, status, stamp(until)))
                     self.db.execute("UPDATE alerts SET acknowledged=1 WHERE id=?", (identifier,))
+                    continue
+                if self.db.execute("SELECT 1 FROM stopped_orders WHERE id=?", (identifier,)).fetchone():
                     continue
                 # Announce only paid/ready orders, not pending-payment orders.
                 if kind == "LAINNYA" or status not in {"PAID", "READY_TO_SHIP", "PACKED"}:
@@ -171,7 +190,20 @@ class Store:
 
     def rows(self):
         self.db.row_factory = sqlite3.Row
-        return [dict(r) for r in self.db.execute("SELECT * FROM alerts ORDER BY acknowledged, kind DESC, created DESC LIMIT 500")]
+        return [dict(r) for r in self.db.execute("""SELECT a.*, s.status AS stopped_status
+            FROM alerts a LEFT JOIN stopped_orders s ON s.id=a.id
+            ORDER BY a.acknowledged, a.kind DESC, a.created DESC LIMIT 500""")]
+
+    def can_announce(self, identifier):
+        return self.db.execute("""SELECT 1 FROM alerts a WHERE a.id=?
+            AND a.acknowledged=0
+            AND NOT EXISTS(SELECT 1 FROM stopped_orders s WHERE s.id=a.id)""",
+            (identifier,)).fetchone() is not None
+
+    def active_ids(self):
+        return [row[0] for row in self.db.execute("""SELECT a.id FROM alerts a
+            WHERE a.acknowledged=0
+            AND NOT EXISTS(SELECT 1 FROM stopped_orders s WHERE s.id=a.id)""")]
 
     def pending(self):
         self.db.row_factory = sqlite3.Row

@@ -62,9 +62,11 @@ def protect(raw, decrypt=False):
         kernel.LocalFree(ctypes.cast(target.data, ctypes.c_void_p))
 
 
-def speak(text):
+def speak(text, cancelled=None):
+    if cancelled is not None and cancelled():
+        return False
     if sys.platform != "win32":
-        return
+        return True
     from ctypes import wintypes
     filename = "prioritas.mp3" if "prioritas" in text.casefold() else "instan.mp3"
     clip = ASSETS / "audio" / filename
@@ -79,8 +81,20 @@ def speak(text):
     if command(f'open "{clip}" type mpegvideo alias {alias}', None, 0, None):
         raise RuntimeError("Windows tidak dapat membuka rekaman suara.")
     try:
-        if command(f"play {alias} wait", None, 0, None):
+        if command(f"play {alias}", None, 0, None):
             raise RuntimeError("Windows gagal memutar rekaman suara.")
+        while True:
+            if cancelled is not None and cancelled():
+                command(f"stop {alias}", None, 0, None)
+                return False
+            mode = ctypes.create_unicode_buffer(64)
+            if command(f"status {alias} mode", mode, len(mode), None):
+                raise RuntimeError("Windows tidak dapat membaca status suara.")
+            if mode.value == "stopped":
+                return True
+            if mode.value not in {"playing", "seeking", "paused"}:
+                raise RuntimeError("Status pemutar suara tidak dikenal.")
+            time.sleep(0.1)
     finally:
         command(f"close {alias}", None, 0, None)
 
@@ -278,7 +292,7 @@ class App:
                     # Break extended offline periods into API-compatible windows.
                     from datetime import timedelta
                     end = min(until, since + timedelta(days=14))
-                    orders = client.orders(since, end)
+                    orders = client.orders(since, end, watch_ids=store.active_ids())
                     if self.stop_event.is_set():
                         break
                     store.ingest(orders, end, instant, priority)
@@ -308,20 +322,37 @@ class App:
 
     def audio_loop(self):
         while True:
-            text = self.audio.get()
+            text, identifier = self.audio.get()
             try:
-                speak(text)
+                self.play_audio(text, identifier)
             except Exception:
                 self.events.put(("status", "Suara gagal diputar. Periksa volume, perangkat audio, dan file rekaman; pop-up tetap tersedia."))
 
+    def play_audio(self, text, identifier=None):
+        if identifier is None:
+            return speak(text)
+        store = Store(DATA / "history.sqlite")
+        try:
+            def cancelled():
+                return self.stop_event.is_set() or not store.can_announce(identifier)
+            if cancelled():
+                return False
+            return speak(text, cancelled=cancelled)
+        finally:
+            store.db.close()
+
     def alert(self, row, reminder=False):
+        identifier = row.get("id")
+        if identifier is not None and not self.store.can_announce(identifier):
+            return False
         text = ("Pengingat. " if reminder else "") + ("Ada pesanan instan prioritas baru. Silakan diproses." if row["kind"] == "PRIORITAS"
             else "Ada pesanan instan baru. Silakan diproses.")
         text += " Nomor pesanan " + row["number"][-6:] + "."
         if self.sound.get():
-            self.audio.put(text)
+            self.audio.put((text, identifier))
         if self.popup_enabled.get():
             self.show_popup(text + "\n" + row["number"] + "\n" + row["service"])
+        return True
 
     def show_popup(self, text):
         # Keep a single pop-up so a burst of orders cannot cover the desktop.
@@ -386,7 +417,9 @@ class App:
                 seconds = int((deadline - now).total_seconds())
                 remaining = ("Lewat " if seconds < 0 else "") + f"{abs(seconds)//60:02}:{abs(seconds)%60:02}"
             self.tree.insert("", "end", iid=row["id"], values=(row["number"], row["shop"], row["service"],
-                row["kind"], remaining if not row["acknowledged"] else "—", "Ditangani" if row["acknowledged"] else "Perlu ditangani"),
+                row["kind"], remaining if not row["acknowledged"] else "—",
+                "Sedang Dikirim" if row.get("stopped_status") in {"SHIPPING", "SHIPPED"}
+                else "Ditangani" if row["acknowledged"] else "Perlu ditangani"),
                 tags=("priority",) if row["kind"] == "PRIORITAS" and not row["acknowledged"] else ())
             if (self.running and self.remind.get() and row["kind"] == "PRIORITAS" and not row["acknowledged"]
                 and row["delivered"] and time.monotonic() >= self.next_reminder.setdefault(row["id"], time.monotonic() + 60)):
